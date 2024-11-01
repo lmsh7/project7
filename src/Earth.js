@@ -13,15 +13,16 @@ export class Earth {
         const y = positions.getY(i);
         const z = positions.getZ(i);
 
-        // 计算球面坐标
+        // Calculate spherical coordinates
         const longitude = Math.atan2(x, z);
         const latitude = Math.asin(y / radius);
 
-        // 将经纬度转换为Web Mercator UV坐标
+        // Convert to Web Mercator UV coordinates
+        // Flip the v-coordinate by using (1 - v) to correct the orientation
         let u = (longitude + Math.PI) / (2 * Math.PI);
-        let v = 0.5 - Math.log(Math.tan((latitude + Math.PI/2) / 2)) / (2 * Math.PI);
+        let v = 1 - (0.5 - Math.log(Math.tan((latitude + Math.PI/2) / 2)) / (2 * Math.PI));
 
-        // 确保UV坐标在0-1范围内
+        // Ensure UV coordinates are within 0-1 range
         u = Math.max(0, Math.min(1, u));
         v = Math.max(0, Math.min(1, v));
 
@@ -33,8 +34,8 @@ export class Earth {
   }
   
   constructor() {
-    this.geometry = new THREE.SphereGeometry(1, 64, 64);
-    // this.geometry = this.createMercatorSphere(1, 64, 64);
+    // this.geometry = new THREE.SphereGeometry(1, 64, 64);
+    this.geometry = this.createMercatorSphere(1, 64, 64);
     const tempMaterial = new THREE.MeshPhongMaterial({
       color: 0x2233ff,
       shininess: 30, // Increased from 10 for better light response
@@ -42,7 +43,7 @@ export class Earth {
     });
     this.mesh = new THREE.Mesh(this.geometry, tempMaterial);
 
-    // 跟踪当前缩放级别
+    // Track current zoom level
     this.currentZoom = 2;
     this.isLoading = false;
     this.lastDistance = null;
@@ -100,7 +101,7 @@ export class Earth {
       const totalTiles = tilesX * tilesY;
       const loadedImages = new Set();
 
-      // 创建加载状态指示器
+      // Create loading indicator
       this.showLoadingIndicator();
 
       for (let x = 0; x < tilesX; x++) {
@@ -108,11 +109,11 @@ export class Earth {
           const img = new Image();
           img.crossOrigin = 'anonymous';
 
-          // 使用多个服务器并添加用户代理
+          // Use multiple servers and add user agent
           const server = String.fromCharCode(97 + ((x + y) % 3));
           img.src = `https://${server}.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
 
-          loadedImages.add(img); // 跟踪加载的图片
+          loadedImages.add(img); // Track loaded images
 
           img.onload = () => {
             ctx.drawImage(img, x * tileSize, y * tileSize, tileSize, tileSize);
@@ -123,7 +124,7 @@ export class Earth {
               const texture = new THREE.CanvasTexture(canvas);
               this.hideLoadingIndicator();
               resolve(texture);
-              loadedImages.clear(); // 清理图片引用
+              loadedImages.clear(); // Clean up image references
             }
           };
 
@@ -139,7 +140,7 @@ export class Earth {
               const texture = new THREE.CanvasTexture(canvas);
               this.hideLoadingIndicator();
               resolve(texture);
-              loadedImages.clear(); // 清理图片引用
+              loadedImages.clear(); // Clean up image references
             }
           };
         }
@@ -182,11 +183,11 @@ export class Earth {
     }
   }
 
-  // 根据相机距离更新缩放级别
+  // Update zoom level based on camera distance
   updateZoomLevel(cameraDistance) {
     if (this.isLoading) return;
 
-    // 避免频繁更新
+    // Avoid frequent updates
     if (
       this.lastDistance &&
       Math.abs(cameraDistance - this.lastDistance) < 0.5
@@ -195,7 +196,7 @@ export class Earth {
     }
     this.lastDistance = cameraDistance;
 
-    // 根据相机距离确定合适的缩放级别
+    // Determine appropriate zoom level based on camera distance
     let newZoom;
     if (cameraDistance > 10) {
       newZoom = 2;
@@ -203,11 +204,13 @@ export class Earth {
       newZoom = 3;
     } else if (cameraDistance > 4) {
       newZoom = 4;
-    } else {
+    } else if (cameraDistance > 3) {
       newZoom = 5;
+    } else {
+      newZoom = 6;
     }
 
-    // 只在缩放级别变化时重新加载纹理
+    // Only reload texture when zoom level changes
     if (newZoom !== this.currentZoom) {
       this.currentZoom = newZoom;
       this.loadTextureForZoom(newZoom);
