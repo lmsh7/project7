@@ -2,6 +2,20 @@ import * as THREE from 'three';
 import { TextureLoader } from './TextureLoader';
 
 export class Earth {
+  constructor() {
+    this.geometry = this.createMercatorSphere(1, 64, 64);
+    const tempMaterial = new THREE.MeshPhongMaterial({
+      color: 0x2233ff,
+      shininess: 30,
+      specular: 0x444444,
+    });
+    this.mesh = new THREE.Mesh(this.geometry, tempMaterial);
+
+    this.currentZoom = 2;
+    this.isLoading = false;
+    this.lastDistance = null;
+    this.textureCache = new Map(); // Cache for storing loaded textures
+  }
 
   createMercatorSphere(radius, widthSegments, heightSegments) {
     const geometry = new THREE.SphereGeometry(radius, widthSegments, heightSegments);
@@ -13,16 +27,12 @@ export class Earth {
         const y = positions.getY(i);
         const z = positions.getZ(i);
 
-        // Calculate spherical coordinates
         const longitude = Math.atan2(x, z);
         const latitude = Math.asin(y / radius);
 
-        // Convert to Web Mercator UV coordinates
-        // Flip the v-coordinate by using (1 - v) to correct the orientation
         let u = (longitude + Math.PI) / (2 * Math.PI);
         let v = 1 - (0.5 - Math.log(Math.tan((latitude + Math.PI/2) / 2)) / (2 * Math.PI));
 
-        // Ensure UV coordinates are within 0-1 range
         u = Math.max(0, Math.min(1, u));
         v = Math.max(0, Math.min(1, v));
 
@@ -31,22 +41,6 @@ export class Earth {
 
     geometry.attributes.uv.needsUpdate = true;
     return geometry;
-  }
-  
-  constructor() {
-    // this.geometry = new THREE.SphereGeometry(1, 64, 64);
-    this.geometry = this.createMercatorSphere(1, 64, 64);
-    const tempMaterial = new THREE.MeshPhongMaterial({
-      color: 0x2233ff,
-      shininess: 30, // Increased from 10 for better light response
-      specular: 0x444444, // Added specular color for better highlights
-    });
-    this.mesh = new THREE.Mesh(this.geometry, tempMaterial);
-
-    // Track current zoom level
-    this.currentZoom = 2;
-    this.isLoading = false;
-    this.lastDistance = null;
   }
 
   async initialize() {
@@ -58,24 +52,40 @@ export class Earth {
     if (this.isLoading) return;
     this.isLoading = true;
 
-    const textureLoader = new TextureLoader();
     try {
-      const material = new THREE.MeshPhongMaterial({
-        map: await this.loadOSMTexture(textureLoader, zoom),
-        displacementScale: 0.1,
-        shininess: 300, // Increased shininess
-        specular: 0x444444, // Added specular color
-        bumpScale: 0.02, // Added subtle bump mapping
-      });
+      // Check if texture is already in cache
+      if (this.textureCache.has(zoom)) {
+        const cachedTexture = this.textureCache.get(zoom);
+        this.updateMaterial(cachedTexture);
+        this.isLoading = false;
+        return;
+      }
 
-      this.mesh.material = material;
-      this.mesh.rotation.y = Math.PI;
-      this.mesh.rotation.x = THREE.MathUtils.degToRad(23.5);
+      const textureLoader = new TextureLoader();
+      const texture = await this.loadOSMTexture(textureLoader, zoom);
+      
+      // Store texture in cache
+      this.textureCache.set(zoom, texture);
+      this.updateMaterial(texture);
     } catch (error) {
       console.error('Failed to load Earth texture:', error);
     } finally {
       this.isLoading = false;
     }
+  }
+
+  updateMaterial(texture) {
+    const material = new THREE.MeshPhongMaterial({
+      map: texture,
+      displacementScale: 0.1,
+      shininess: 300,
+      specular: 0x444444,
+      bumpScale: 0.02,
+    });
+
+    this.mesh.material = material;
+    this.mesh.rotation.y = Math.PI;
+    this.mesh.rotation.x = THREE.MathUtils.degToRad(23.5);
   }
 
   async loadOSMTexture(textureLoader, zoom) {
@@ -101,7 +111,6 @@ export class Earth {
       const totalTiles = tilesX * tilesY;
       const loadedImages = new Set();
 
-      // Create loading indicator
       this.showLoadingIndicator();
 
       for (let x = 0; x < tilesX; x++) {
@@ -109,11 +118,10 @@ export class Earth {
           const img = new Image();
           img.crossOrigin = 'anonymous';
 
-          // Use multiple servers and add user agent
           const server = String.fromCharCode(97 + ((x + y) % 3));
           img.src = `https://${server}.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
 
-          loadedImages.add(img); // Track loaded images
+          loadedImages.add(img);
 
           img.onload = () => {
             ctx.drawImage(img, x * tileSize, y * tileSize, tileSize, tileSize);
@@ -124,7 +132,7 @@ export class Earth {
               const texture = new THREE.CanvasTexture(canvas);
               this.hideLoadingIndicator();
               resolve(texture);
-              loadedImages.clear(); // Clean up image references
+              loadedImages.clear();
             }
           };
 
@@ -140,7 +148,7 @@ export class Earth {
               const texture = new THREE.CanvasTexture(canvas);
               this.hideLoadingIndicator();
               resolve(texture);
-              loadedImages.clear(); // Clean up image references
+              loadedImages.clear();
             }
           };
         }
@@ -183,11 +191,9 @@ export class Earth {
     }
   }
 
-  // Update zoom level based on camera distance
   updateZoomLevel(cameraDistance) {
     if (this.isLoading) return;
 
-    // Avoid frequent updates
     if (
       this.lastDistance &&
       Math.abs(cameraDistance - this.lastDistance) < 0.5
@@ -196,7 +202,6 @@ export class Earth {
     }
     this.lastDistance = cameraDistance;
 
-    // Determine appropriate zoom level based on camera distance
     let newZoom;
     if (cameraDistance > 10) {
       newZoom = 2;
@@ -210,7 +215,6 @@ export class Earth {
       newZoom = 6;
     }
 
-    // Only reload texture when zoom level changes
     if (newZoom !== this.currentZoom) {
       this.currentZoom = newZoom;
       this.loadTextureForZoom(newZoom);
