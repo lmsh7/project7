@@ -17,28 +17,68 @@ export class Earth {
     this.textureCache = new Map(); // Cache for storing loaded textures
   }
 
+  fixUVSeam(geometry) {
+    // 获取索引数组
+    const indices = geometry.getIndex().array;
+    const uvs = geometry.attributes.uv.array;
+
+    // 遍历所有三角形
+    for (let i = 0; i < indices.length; i += 3) {
+      const i0 = indices[i] * 2;
+      const i1 = indices[i + 1] * 2;
+      const i2 = indices[i + 2] * 2;
+
+      // 获取三角形的UV坐标
+      const u0 = uvs[i0];
+      const u1 = uvs[i1];
+      const u2 = uvs[i2];
+
+      // 检查是否跨越0/1边界(差值大于0.5表示可能跨越边界)
+      if (
+        Math.abs(u1 - u0) > 0.5 ||
+        Math.abs(u2 - u0) > 0.5 ||
+        Math.abs(u2 - u1) > 0.5
+      ) {
+        // 修复UV坐标 - 将小于0.5的UV值加1
+        if (u0 < 0.5) uvs[i0] += 1;
+        if (u1 < 0.5) uvs[i1] += 1;
+        if (u2 < 0.5) uvs[i2] += 1;
+      }
+    }
+
+    geometry.attributes.uv.needsUpdate = true;
+  }
+
   createMercatorSphere(radius, widthSegments, heightSegments) {
-    const geometry = new THREE.SphereGeometry(radius, widthSegments, heightSegments);
+    const geometry = new THREE.SphereGeometry(
+      radius,
+      widthSegments,
+      heightSegments,
+      0, // phiStart
+      Math.PI * 2, // phiLength (0 到 π)
+      0, // thetaStart
+      Math.PI * 2 // thetaLength (0 到 2π)
+    );
     const positions = geometry.attributes.position;
     const uvs = geometry.attributes.uv;
 
     for (let i = 0; i < uvs.count; i++) {
-        const x = positions.getX(i);
-        const y = positions.getY(i);
-        const z = positions.getZ(i);
+      const x = positions.getX(i);
+      const y = positions.getY(i);
+      const z = positions.getZ(i);
 
-        const longitude = Math.atan2(x, z);
-        const latitude = Math.asin(y / radius);
+      const longitude = Math.atan2(x, z);
+      const latitude = Math.asin(y / radius);
 
-        let u = (longitude + Math.PI) / (2 * Math.PI);
-        let v = 1 - (0.5 - Math.log(Math.tan((latitude + Math.PI/2) / 2)) / (2 * Math.PI));
+      let u = (longitude + Math.PI) / (2 * Math.PI);
+      let v =
+        0.5 + Math.log(Math.tan(Math.PI / 4 + latitude / 2)) / (2 * Math.PI);
 
-        u = Math.max(0, Math.min(1, u));
-        v = Math.max(0, Math.min(1, v));
-
-        uvs.setXY(i, u, v);
+      u = Math.max(0, Math.min(1, u));
+      v = Math.max(0, Math.min(1, v));
+      uvs.setXY(i, u, v);
     }
-
+    this.fixUVSeam(geometry);
     geometry.attributes.uv.needsUpdate = true;
     return geometry;
   }
@@ -63,7 +103,7 @@ export class Earth {
 
       const textureLoader = new TextureLoader();
       const texture = await this.loadOSMTexture(textureLoader, zoom);
-      
+
       // Store texture in cache
       this.textureCache.set(zoom, texture);
       this.updateMaterial(texture);
@@ -204,12 +244,14 @@ export class Earth {
 
     let newZoom;
     if (cameraDistance > 10) {
-      newZoom = 2;
+      newZoom = 1;
     } else if (cameraDistance > 6) {
-      newZoom = 3;
+      newZoom = 2;
     } else if (cameraDistance > 4) {
-      newZoom = 4;
+      newZoom = 3;
     } else if (cameraDistance > 3) {
+      newZoom = 4;
+    } else if (cameraDistance > 1.8) {
       newZoom = 5;
     } else {
       newZoom = 6;
