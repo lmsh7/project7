@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { Earth } from './Earth';
+import { Earth } from './components/earth/Earth';
 import { Renderer } from './Renderer';
 import { CAMERA_SETTINGS, CONTROLS } from './constants';
 
@@ -51,7 +51,6 @@ class App {
     this.controls.minDistance = CONTROLS.MIN_DISTANCE;
     this.controls.maxDistance = CONTROLS.MAX_DISTANCE;
 
-    // 添加控制器变化的监听
     this.controls.addEventListener('change', () => {
       if (this.earth && this.camera) {
         const distance = this.camera.position.length();
@@ -67,21 +66,17 @@ class App {
   }
 
   setupLights() {
-    // Main directional light (sun)
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.2); // Increased intensity
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
     mainLight.position.set(5, 3, 5);
     
-    // Ambient light for general illumination
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Increased from 0.3
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     
-    // Add a hemisphere light for more natural lighting
     const hemisphereLight = new THREE.HemisphereLight(
-      0xffffff, // Sky color
-      0x444444, // Ground color
-      0.8 // Intensity
+      0xffffff,
+      0x444444,
+      0.8
     );
     
-    // Add a weak front light to reduce shadows
     const frontLight = new THREE.DirectionalLight(0xffffff, 0.3);
     frontLight.position.set(0, 0, 5);
     
@@ -125,7 +120,6 @@ class App {
   }
 }
 
-// Initialize application
 window.addEventListener('DOMContentLoaded', () => {
   new App();
 });
