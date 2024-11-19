@@ -13,41 +13,60 @@ export class LocationExtractor {
       'Portugal', 'Belgium', 'Netherlands', 'Luxembourg', 'Monaco', 'Vatican City',
       '湖南', '新疆', '北京', '上海', '广州', '深圳', '香港', '澳门', '台北'
     ]);
-    this.debug = false;
+    this.debug = true; // Enable debug mode by default
   }
 
   extractLocations(text) {
-    if (this.debug) {
-      console.log('Analyzing text:', text);
-    }
+    console.log('🌍 Location Extractor Analysis:');
+    console.log('📝 Input text:', text);
 
     const words = text.split(/\s+/);
     const found = new Set();
     const analyzed = new Map();
     
+    console.log('🔍 Processing words:', words.length, 'total words');
+    
+    // Single word analysis
     for (let i = 0; i < words.length; i++) {
-      const word = words[i].replace(/[.,!?]/g, '');
-      analyzed.set(word, this.locations.has(word));
+      const word = this.cleanWord(words[i]);
+      const isLocation = this.locations.has(word);
+      analyzed.set(word, isLocation);
       
-      if (this.locations.has(word)) {
+      if (isLocation) {
         found.add(word);
+        console.log(`✅ Found location: "${word}"`);
+      } else {
+        console.log(`❌ Not a location: "${word}"`);
       }
       
+      // Two-word combinations
       if (i < words.length - 1) {
-        const twoWords = word + ' ' + words[i + 1].replace(/[.,!?]/g, '');
-        analyzed.set(twoWords, this.locations.has(twoWords));
+        const nextWord = this.cleanWord(words[i + 1]);
+        const twoWords = `${word} ${nextWord}`;
+        const isTwoWordLocation = this.locations.has(twoWords);
+        analyzed.set(twoWords, isTwoWordLocation);
         
-        if (this.locations.has(twoWords)) {
+        if (isTwoWordLocation) {
           found.add(twoWords);
+          console.log(`✅ Found two-word location: "${twoWords}"`);
         }
       }
     }
 
-    if (this.debug) {
-      console.log('Word analysis:', Object.fromEntries(analyzed));
-      console.log('Found locations:', Array.from(found));
+    console.log('📊 Analysis Summary:');
+    console.log('- Words analyzed:', analyzed.size);
+    console.log('- Locations found:', found.size);
+    
+    const results = Array.from(found);
+    if (results.length === 0) {
+      results.push('Unknown Location');
+      console.log('⚠️ No locations found, adding "Unknown Location" tag');
     }
 
-    return Array.from(found);
+    return results;
+  }
+
+  cleanWord(word) {
+    return word.replace(/[.,!?]/g, '').trim();
   }
 }

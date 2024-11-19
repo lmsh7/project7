@@ -12,7 +12,7 @@ export class RSSFeed {
     this.toggleButton = new RSSToggleButton(this.toggleDrawer.bind(this));
     this.feedList = [];
     this.error = new RSSError(this.container.element);
-    this.feedListUI = new RSSFeedList();
+    this.feedListUI = new RSSFeedList(this.removeFeed.bind(this));
     this.createUI();
   }
 
@@ -85,6 +85,7 @@ export class RSSFeed {
       if (data.status === 'ok') {
         const feed = {
           title: data.feed.title,
+          url: url,
           items: data.items.map(item => ({
             ...item,
             locations: this.locationExtractor.extractLocations(item.title + ' ' + item.description)
@@ -101,6 +102,11 @@ export class RSSFeed {
       this.error.show('Error loading RSS feed');
       console.error('Feed loading error:', error);
     }
+  }
+
+  removeFeed(index) {
+    this.feedList.splice(index, 1);
+    this.feedListUI.updateFeeds(this.feedList);
   }
 
   toggleDrawer() {

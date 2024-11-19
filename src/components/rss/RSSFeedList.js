@@ -1,6 +1,7 @@
 export class RSSFeedList {
-  constructor() {
+  constructor(onRemove) {
     this.element = this.create();
+    this.onRemove = onRemove;
   }
 
   create() {
@@ -94,10 +95,20 @@ export class RSSFeedList {
   setupRemoveButtonEffects(button, index) {
     button.addEventListener('mouseover', () => {
       button.style.transform = 'scale(1.2)';
+      button.style.color = '#ff6666';
     });
     
     button.addEventListener('mouseout', () => {
       button.style.transform = 'scale(1)';
+      button.style.color = '#ff4444';
+    });
+
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (this.onRemove) {
+        this.onRemove(index);
+      }
     });
   }
 
@@ -140,23 +151,46 @@ export class RSSFeedList {
     const container = document.createElement('div');
     container.style.cssText = 'margin-top: 4px;';
     
+    if (!locations || locations.length === 0) {
+      const tag = this.createTag('Unknown Location', true);
+      container.appendChild(tag);
+      return container;
+    }
+    
     locations.forEach(location => {
-      const tag = document.createElement('span');
-      tag.textContent = location;
-      tag.style.cssText = `
-        display: inline-block;
-        background: ${location === 'Unknown Location' ? 'rgba(128, 128, 128, 0.2)' : 'rgba(76, 175, 80, 0.2)'};
-        color: ${location === 'Unknown Location' ? '#888' : '#4CAF50'};
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-size: 11px;
-        margin-right: 4px;
-        margin-top: 4px;
-      `;
+      const tag = this.createTag(location, location === 'Unknown Location');
       container.appendChild(tag);
     });
 
     return container;
+  }
+
+  createTag(text, isUnknown) {
+    const tag = document.createElement('span');
+    tag.textContent = text;
+    tag.style.cssText = `
+      display: inline-block;
+      background: ${isUnknown ? 'rgba(128, 128, 128, 0.2)' : 'rgba(76, 175, 80, 0.2)'};
+      color: ${isUnknown ? '#888' : '#4CAF50'};
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      margin-right: 4px;
+      margin-top: 4px;
+      transition: all 0.2s ease;
+    `;
+
+    tag.addEventListener('mouseover', () => {
+      tag.style.transform = 'scale(1.05)';
+      tag.style.background = isUnknown ? 'rgba(128, 128, 128, 0.3)' : 'rgba(76, 175, 80, 0.3)';
+    });
+
+    tag.addEventListener('mouseout', () => {
+      tag.style.transform = 'scale(1)';
+      tag.style.background = isUnknown ? 'rgba(128, 128, 128, 0.2)' : 'rgba(76, 175, 80, 0.2)';
+    });
+
+    return tag;
   }
 
   setupItemHoverEffects(element) {
