@@ -14,7 +14,7 @@ export class RSSFeedList {
 
   updateFeeds(feeds) {
     this.element.style.opacity = '0';
-    
+
     setTimeout(() => {
       this.element.innerHTML = '';
       feeds.forEach((feed, index) => this.createFeedElement(feed, index));
@@ -33,11 +33,11 @@ export class RSSFeedList {
     `;
 
     feedElement.appendChild(this.createFeedHeader(feed, index));
-    
+
     const itemsContainer = document.createElement('div');
     const isExpanded = this.expandedFeeds.has(index);
     const itemsToShow = isExpanded ? feed.items : feed.items.slice(0, 5);
-    
+
     itemsToShow.forEach(item => {
       itemsContainer.appendChild(this.createFeedItem(item));
     });
@@ -61,11 +61,11 @@ export class RSSFeedList {
 
     const button = document.createElement('button');
     const isExpanded = this.expandedFeeds.has(index);
-    
-    button.textContent = isExpanded ? 
-      `Show Less` : 
+
+    button.textContent = isExpanded ?
+      `Show Less` :
       `Show All (${totalItems - 5} more items)`;
-    
+
     button.style.cssText = `
       background: transparent;
       border: 1px solid #4CAF50;
@@ -109,7 +109,7 @@ export class RSSFeedList {
       button.style.background = 'rgba(76, 175, 80, 0.1)';
       button.style.transform = 'scale(1.05)';
     });
-    
+
     button.addEventListener('mouseout', () => {
       button.style.background = 'transparent';
       button.style.transform = 'scale(1)';
@@ -182,7 +182,7 @@ export class RSSFeedList {
       button.style.transform = 'scale(1.2)';
       button.style.color = '#ff6666';
     });
-    
+
     button.addEventListener('mouseout', () => {
       button.style.transform = 'scale(1)';
       button.style.color = '#ff4444';
@@ -221,27 +221,67 @@ export class RSSFeedList {
     date.textContent = this.formatDate(item.pubDate);
     date.style.cssText = 'font-size: 12px; color: rgba(255, 255, 255, 0.5);';
 
-    const locationTags = this.createLocationTags(item.locations);
+    // 添加位置标签容器，并设置一个唯一的ID以便后续更新
+    const locationTagsContainer = document.createElement('div');
+    locationTagsContainer.className = 'location-tags-container';
+    locationTagsContainer.style.cssText = 'margin-top: 4px;';
+
+    const locationTags = this.createLocationTags(item.locations, item.locationLoading);
+    locationTagsContainer.appendChild(locationTags);
 
     itemElement.appendChild(title);
     itemElement.appendChild(date);
-    itemElement.appendChild(locationTags);
+    itemElement.appendChild(locationTagsContainer);
 
     this.setupItemHoverEffects(itemElement);
+
+    // 保存引用以便后续更新
+    itemElement.setAttribute('data-item-id', `${Date.now()}-${Math.random()}`);
 
     return itemElement;
   }
 
-  createLocationTags(locations) {
+  createLocationTags(locations, isLoading = false) {
     const container = document.createElement('div');
     container.style.cssText = 'margin-top: 4px;';
-    
+
+    if (isLoading) {
+      // 创建加载动画
+      const loadingTag = document.createElement('span');
+      loadingTag.style.cssText = `
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 11px;
+        margin-right: 4px;
+        margin-top: 4px;
+        background: rgba(128, 128, 128, 0.2);
+        color: #888;
+        animation: pulse 1.5s infinite ease-in-out;
+      `;
+      loadingTag.textContent = 'Loading locations...';
+
+      // 添加脉动动画样式
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes pulse {
+          0% { opacity: 0.6; }
+          50% { opacity: 1; }
+          100% { opacity: 0.6; }
+        }
+      `;
+      document.head.appendChild(style);
+
+      container.appendChild(loadingTag);
+      return container;
+    }
+
     if (!locations || locations.length === 0) {
       const tag = this.createTag('Unknown Location', true);
       container.appendChild(tag);
       return container;
     }
-    
+
     locations.forEach(location => {
       const tag = this.createTag(location, location === 'Unknown Location');
       container.appendChild(tag);
@@ -283,11 +323,25 @@ export class RSSFeedList {
       element.style.background = 'rgba(255, 255, 255, 0.1)';
       element.style.transform = 'translateX(5px)';
     });
-    
+
     element.addEventListener('mouseout', () => {
       element.style.background = 'rgba(255, 255, 255, 0.03)';
       element.style.transform = 'translateX(0)';
     });
+  }
+  
+  updateItemLocations(feedIndex, itemIndex, locations) {
+    const feedElements = this.element.children;
+    if (feedElements[feedIndex]) {
+      const itemElements = feedElements[feedIndex].querySelectorAll('a');
+      if (itemElements[itemIndex]) {
+        const locationContainer = itemElements[itemIndex].querySelector('.location-tags-container');
+        if (locationContainer) {
+          locationContainer.innerHTML = '';
+          locationContainer.appendChild(this.createLocationTags(locations, false));
+        }
+      }
+    }
   }
 
   formatDate(dateString) {

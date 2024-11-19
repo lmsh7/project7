@@ -84,18 +84,25 @@ export class RSSFeed {
       const data = await response.json();
 
       if (data.status === 'ok') {
+        // 先创建没有位置信息的feed
         const feed = {
           title: data.feed.title,
           url: url,
-          items: await Promise.all(data.items.map(async item => ({
+          items: data.items.map(item => ({
             ...item,
-            locations: await this.locationExtractor.extractLocations(item.title + ' ' + item.description)
-          }))),
+            locations: [], // 初始为空数组
+            locationLoading: true // 添加加载状态标记
+          })),
           lastUpdate: new Date().toISOString()
         };
 
+        // 先添加feed并更新UI
         this.feedList.push(feed);
         this.feedListUI.updateFeeds(this.feedList);
+
+        // 然后异步加载位置信息
+        const feedIndex = this.feedList.length - 1;
+        this.loadLocationsForFeed(feedIndex);
       } else {
         this.error.show('Invalid RSS feed URL');
       }
@@ -103,6 +110,30 @@ export class RSSFeed {
       this.error.show('Error loading RSS feed');
       console.error('Feed loading error:', error);
     }
+  }
+  async loadLocationsForFeed(feedIndex) {
+    const feed = this.feedList[feedIndex];
+
+    // 并行处理所有items的位置提取
+    const locationPromises = feed.items.map(async (item, itemIndex) => {
+      try {
+        const locations = await this.locationExtractor.extractLocations(item.title + ' ' + item.description);
+        // 更新单个item的位置信息
+        this.feedList[feedIndex].items[itemIndex].locations = locations;
+        this.feedList[feedIndex].items[itemIndex].locationLoading = false;
+
+        // 触发单个item的UI更新
+        this.feedListUI.updateItemLocations(feedIndex, itemIndex, locations);
+      } catch (error) {
+        console.error('Error loading locations for item:', error);
+        this.feedList[feedIndex].items[itemIndex].locations = ['Unknown Location'];
+        this.feedList[feedIndex].items[itemIndex].locationLoading = false;
+        this.feedListUI.updateItemLocations(feedIndex, itemIndex, ['Unknown Location']);
+      }
+    });
+
+    // 等待所有位置信息加载完成
+    await Promise.all(locationPromises);
   }
 
   removeFeed(index) {
