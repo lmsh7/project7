@@ -1,72 +1,67 @@
 export class LocationExtractor {
   constructor() {
-    this.locations = new Set([
-      'London', 'Paris', 'New York', 'Tokyo', 'Beijing', 'Moscow', 'Berlin',
-      'Rome', 'Madrid', 'Amsterdam', 'Dubai', 'Singapore', 'Sydney', 'Toronto',
-      'USA', 'UK', 'China', 'Japan', 'Russia', 'Germany', 'France', 'Italy',
-      'Spain', 'Canada', 'Australia', 'India', 'Brazil', 'Mexico', 'Argentina',
-      'South Korea', 'North Korea', 'Vietnam', 'Thailand', 'Indonesia',
-      'South Africa', 'Egypt', 'Nigeria', 'Kenya', 'Israel', 'Iran', 'Iraq',
-      'Saudi Arabia', 'Turkey', 'Greece', 'Sweden', 'Norway', 'Denmark',
-      'Finland', 'Iceland', 'Ireland', 'Scotland', 'Wales', 'Switzerland',
-      'Austria', 'Poland', 'Ukraine', 'Romania', 'Hungary', 'Czech Republic',
-      'Portugal', 'Belgium', 'Netherlands', 'Luxembourg', 'Monaco', 'Vatican City',
-      '湖南', '新疆', '北京', '上海', '广州', '深圳', '香港', '澳门', '台北'
-    ]);
+    this.apiUrl = 'http://localhost:1771/extract_location';
     this.debug = true; // Enable debug mode by default
   }
 
-  extractLocations(text) {
-    console.log('🌍 Location Extractor Analysis:');
-    console.log('📝 Input text:', text);
+  async extractLocations(text) {
+    if (this.debug) {
+      console.log('🌍 Location Extractor Analysis:');
+      console.log('📝 Input text:', text);
+    }
 
-    const words = text.split(/\s+/);
-    const found = new Set();
-    const analyzed = new Map();
-    
-    console.log('🔍 Processing words:', words.length, 'total words');
-    
-    // Single word analysis
-    for (let i = 0; i < words.length; i++) {
-      const word = this.cleanWord(words[i]);
-      const isLocation = this.locations.has(word);
-      analyzed.set(word, isLocation);
-      
-      if (isLocation) {
-        found.add(word);
-        console.log(`✅ Found location: "${word}"`);
-      } else {
-        console.log(`❌ Not a location: "${word}"`);
+    try {
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': '*/*',
+          'User-Agent': 'Apifox/1.0.0 (https://apifox.com)',
+          'Connection': 'keep-alive'
+        },
+        body: JSON.stringify({
+          content: text
+        })
+      });
+
+      if (!response.ok) {
+        console.error('❌ API request failed:', response.statusText);
+        return ['Unknown Location'];
       }
+
+      const data = await response.json();
       
-      // Two-word combinations
-      if (i < words.length - 1) {
-        const nextWord = this.cleanWord(words[i + 1]);
-        const twoWords = `${word} ${nextWord}`;
-        const isTwoWordLocation = this.locations.has(twoWords);
-        analyzed.set(twoWords, isTwoWordLocation);
+      if (this.debug) {
+        console.log('✅ API Response:', data);
+      }
+
+      // 如果 API 返回了位置信息
+      if (data.location) {
+        // 将返回的位置字符串按空格分割成数组
+        const locations = data.location.split(' ').filter(loc => loc.trim());
         
-        if (isTwoWordLocation) {
-          found.add(twoWords);
-          console.log(`✅ Found two-word location: "${twoWords}"`);
+        if (this.debug) {
+          console.log('📊 Locations found:', locations);
         }
+
+        return locations.length > 0 ? locations : ['Unknown Location'];
       }
-    }
 
-    console.log('📊 Analysis Summary:');
-    console.log('- Words analyzed:', analyzed.size);
-    console.log('- Locations found:', found.size);
-    
-    const results = Array.from(found);
-    if (results.length === 0) {
-      results.push('Unknown Location');
-      console.log('⚠️ No locations found, adding "Unknown Location" tag');
-    }
+      return ['Unknown Location'];
 
-    return results;
+    } catch (error) {
+      console.error('❌ Error extracting locations:', error);
+      return ['Unknown Location'];
+    }
   }
 
-  cleanWord(word) {
-    return word.replace(/[.,!?]/g, '').trim();
+  // 设置 API URL（可选，用于配置不同环境）
+  setApiUrl(url) {
+    this.apiUrl = url;
+  }
+
+  // 启用或禁用调试模式
+  setDebug(enabled) {
+    this.debug = enabled;
   }
 }

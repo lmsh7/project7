@@ -2,6 +2,7 @@ export class RSSFeedList {
   constructor(onRemove) {
     this.element = this.create();
     this.onRemove = onRemove;
+    this.expandedFeeds = new Set(); // 跟踪哪些 feed 被展开
   }
 
   create() {
@@ -32,11 +33,95 @@ export class RSSFeedList {
     `;
 
     feedElement.appendChild(this.createFeedHeader(feed, index));
-    feed.items.slice(0, 5).forEach(item => {
-      feedElement.appendChild(this.createFeedItem(item));
+    
+    const itemsContainer = document.createElement('div');
+    const isExpanded = this.expandedFeeds.has(index);
+    const itemsToShow = isExpanded ? feed.items : feed.items.slice(0, 5);
+    
+    itemsToShow.forEach(item => {
+      itemsContainer.appendChild(this.createFeedItem(item));
     });
 
+    // 只有当有超过5个项目时才显示"显示全部"按钮
+    if (feed.items.length > 5) {
+      const showAllButton = this.createShowAllButton(index, feed.items.length, itemsContainer, feed);
+      feedElement.appendChild(showAllButton);
+    }
+
+    feedElement.appendChild(itemsContainer);
     this.element.appendChild(feedElement);
+  }
+
+  createShowAllButton(index, totalItems, itemsContainer, feed) {
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = `
+      text-align: center;
+      margin: 10px 0;
+    `;
+
+    const button = document.createElement('button');
+    const isExpanded = this.expandedFeeds.has(index);
+    
+    button.textContent = isExpanded ? 
+      `Show Less` : 
+      `Show All (${totalItems - 5} more items)`;
+    
+    button.style.cssText = `
+      background: transparent;
+      border: 1px solid #4CAF50;
+      color: #4CAF50;
+      padding: 5px 15px;
+      border-radius: 15px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s ease;
+      margin: 5px 0;
+    `;
+
+    this.setupShowAllButtonEffects(button);
+
+    button.addEventListener('click', () => {
+      if (this.expandedFeeds.has(index)) {
+        // 收起
+        this.expandedFeeds.delete(index);
+        itemsContainer.innerHTML = '';
+        feed.items.slice(0, 5).forEach(item => {
+          itemsContainer.appendChild(this.createFeedItem(item));
+        });
+        button.textContent = `Show All (${totalItems - 5} more items)`;
+      } else {
+        // 展开
+        this.expandedFeeds.add(index);
+        itemsContainer.innerHTML = '';
+        feed.items.forEach(item => {
+          itemsContainer.appendChild(this.createFeedItem(item));
+        });
+        button.textContent = 'Show Less';
+      }
+    });
+
+    buttonContainer.appendChild(button);
+    return buttonContainer;
+  }
+
+  setupShowAllButtonEffects(button) {
+    button.addEventListener('mouseover', () => {
+      button.style.background = 'rgba(76, 175, 80, 0.1)';
+      button.style.transform = 'scale(1.05)';
+    });
+    
+    button.addEventListener('mouseout', () => {
+      button.style.background = 'transparent';
+      button.style.transform = 'scale(1)';
+    });
+
+    button.addEventListener('mousedown', () => {
+      button.style.transform = 'scale(0.95)';
+    });
+
+    button.addEventListener('mouseup', () => {
+      button.style.transform = 'scale(1.05)';
+    });
   }
 
   createFeedHeader(feed, index) {

@@ -22,7 +22,7 @@ export class RSSFeed {
     title.style.cssText = 'margin: 0 0 20px 0; color: #fff; font-size: 24px;';
 
     const form = this.createSubscriptionForm();
-    
+
     this.container.element.appendChild(title);
     this.container.element.appendChild(form);
     this.container.element.appendChild(this.feedListUI.element);
@@ -77,22 +77,23 @@ export class RSSFeed {
     return form;
   }
 
+  // 在 RSSFeed.js 中修改 addFeed 方法
   async addFeed(url) {
     try {
       const response = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
       const data = await response.json();
-      
+
       if (data.status === 'ok') {
         const feed = {
           title: data.feed.title,
           url: url,
-          items: data.items.map(item => ({
+          items: await Promise.all(data.items.map(async item => ({
             ...item,
-            locations: this.locationExtractor.extractLocations(item.title + ' ' + item.description)
-          })),
+            locations: await this.locationExtractor.extractLocations(item.title + ' ' + item.description)
+          }))),
           lastUpdate: new Date().toISOString()
         };
-        
+
         this.feedList.push(feed);
         this.feedListUI.updateFeeds(this.feedList);
       } else {
