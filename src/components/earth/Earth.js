@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { EarthGeometry } from './EarthGeometry';
 import { TextureManager } from './TextureManager';
 import { LoadingUI } from './LoadingUI';
+import { TemperatureOverlay } from './TemperatureOverlay';
+import { TemperatureLegend } from './TemperatureLegend';
 
 export class Earth {
   constructor() {
@@ -17,11 +19,20 @@ export class Earth {
     this.lastDistance = null;
     this.textureManager = new TextureManager();
     this.loadingUI = new LoadingUI();
+    this.temperatureOverlay = new TemperatureOverlay();
+    this.temperatureLegend = new TemperatureLegend();
   }
 
   async initialize() {
     await this.loadTextureForZoom(this.currentZoom);
+    await this.initializeTemperatureOverlay();
+    this.temperatureLegend.create();
     return this.mesh;
+  }
+
+  async initializeTemperatureOverlay() {
+    const overlayTexture = await this.temperatureOverlay.initialize();
+    // this.updateMaterialWithOverlay(this.mesh.material.map, overlayTexture);
   }
 
   async loadTextureForZoom(zoom) {
@@ -30,20 +41,60 @@ export class Earth {
     try {
       const texture = await this.textureManager.getTextureForZoom(zoom, this.loadingUI);
       if (texture) {
-        this.updateMaterial(texture);
+        this.updateMaterialWithOverlay(texture, this.temperatureOverlay.texture);
       }
     } catch (error) {
       console.error('Failed to load Earth texture:', error);
     }
   }
 
-  updateMaterial(texture) {
-    const material = new THREE.MeshPhongMaterial({
-      map: texture,
-      displacementScale: 0.1,
-      shininess: 300,
-      specular: 0x444444,
-      bumpScale: 0.02,
+  updateMaterialWithOverlay(baseTexture, overlayTexture) {
+    if (!baseTexture) return;
+
+    // Create custom shader material
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        baseTexture: { value: baseTexture },
+        temperatureOverlay: { value: overlayTexture },
+        ...THREE.UniformsLib.lights
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+
+        void main() {
+          vUv = uv;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          vViewPosition = -mvPosition.xyz;
+          vNormal = normalMatrix * normal;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D baseTexture;
+        uniform sampler2D temperatureOverlay;
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+
+        void main() {
+          vec4 baseColor = texture2D(baseTexture, vUv);
+          vec4 overlayColor = texture2D(temperatureOverlay, vUv);
+          
+          // Blend the base texture with the temperature overlay
+          vec3 finalColor = mix(baseColor.rgb, overlayColor.rgb, overlayColor.a * 0.5);
+          
+          // Basic lighting
+          vec3 normal = normalize(vNormal);
+          vec3 viewDir = normalize(vViewPosition);
+          float diffuse = max(dot(normal, viewDir), 0.0);
+          
+          gl_FragColor = vec4(finalColor * (0.8 + 0.2 * diffuse), 1.0);
+        }
+      `,
+      lights: true,
+      transparent: true
     });
 
     this.mesh.material = material;
