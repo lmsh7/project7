@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Earth } from './components/earth/Earth';
 import { Renderer } from './Renderer';
 import { CAMERA_SETTINGS, CONTROLS } from './constants';
+import { RSSFeed } from './components/rss/RSSFeed';
 
 class App {
   constructor() {
@@ -16,6 +17,7 @@ class App {
       this.initializeRenderer();
       this.initializeControls();
       await this.initializeEarth();
+      this.initializeRSSFeed();
       this.setupEventListeners();
       this.animate();
     } catch (error) {
@@ -63,6 +65,10 @@ class App {
     this.earth = new Earth();
     await this.earth.initialize();
     this.scene.add(this.earth.mesh);
+  }
+
+  initializeRSSFeed() {
+    this.rssFeed = new RSSFeed();
   }
 
   setupLights() {
