@@ -21,7 +21,13 @@ export class LocationPin {
     const pin = new THREE.Mesh(pinGeometry, this.pinMaterial);
     const position = this.latLonToVector3(parseFloat(lat), parseFloat(lon), 1.02);
     pin.position.copy(position);
-    pin.lookAt(0, 0, 0);
+
+    // Calculate the orientation to make the pin perpendicular to the surface
+    const up = position.clone().normalize();
+    const axis = new THREE.Vector3(0, 1, 0);
+    const quaternion = new THREE.Quaternion();
+    quaternion.setFromUnitVectors(axis, up);
+    pin.setRotationFromQuaternion(quaternion);
 
     // Add label
     const labelDiv = document.createElement('div');
@@ -47,11 +53,9 @@ export class LocationPin {
   }
 
   latLonToVector3(lat, lon, radius) {
-    // Convert latitude and longitude to radians
     const latRad = THREE.MathUtils.degToRad(lat);
-    const lonRad = THREE.MathUtils.degToRad(-lon); // Negate longitude to match Earth's rotation
+    const lonRad = THREE.MathUtils.degToRad(-lon + 90);
 
-    // Calculate the position using spherical coordinates
     return new THREE.Vector3(
       radius * Math.cos(latRad) * Math.cos(lonRad),
       radius * Math.sin(latRad),
