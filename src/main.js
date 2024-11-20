@@ -4,6 +4,9 @@ import { Earth } from './components/earth/Earth';
 import { Renderer } from './Renderer';
 import { CAMERA_SETTINGS, CONTROLS } from './constants';
 import { RSSFeed } from './components/rss/RSSFeed';
+import { SearchBar } from './components/search/SearchBar';
+import { LocationPin } from './components/location/LocationPin';
+import { CameraController } from './components/camera/CameraController';
 
 class App {
   constructor() {
@@ -18,6 +21,7 @@ class App {
       this.initializeControls();
       await this.initializeEarth();
       this.initializeRSSFeed();
+      this.initializeLocationFeatures();
       this.setupEventListeners();
       this.animate();
     } catch (error) {
@@ -71,6 +75,18 @@ class App {
     this.rssFeed = new RSSFeed();
   }
 
+  initializeLocationFeatures() {
+    this.locationPin = new LocationPin(this.earth.mesh);
+    
+    this.cameraController = new CameraController(this.camera, this.controls);
+    this.searchBar = new SearchBar(
+      this.camera,
+      this.controls,
+      this.locationPin,
+      this.cameraController
+    );
+  }
+
   setupLights() {
     const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
     mainLight.position.set(5, 3, 5);
@@ -121,6 +137,12 @@ class App {
     this.controls.update();
     if (this.earth) {
       this.earth.autoRotate();
+    }
+    if (this.cameraController) {
+      this.cameraController.update();
+    }
+    if (this.locationPin && this.camera && this.renderer) {
+      this.locationPin.updateLabels(this.camera, this.renderer.renderer);
     }
     this.renderer.render(this.scene, this.camera);
   }

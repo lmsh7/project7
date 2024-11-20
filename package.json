@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "three": "^0.158.0",
-    "rss-parser": "^3.13.0"
+    "rss-parser": "^3.13.0",
+    "@tweenjs/tween.js": "^21.0.0"
   },
   "devDependencies": {
     "vite": "^5.0.0"
